@@ -1,0 +1,67 @@
+import numpy as np
+import random
+
+def update_transformation_probabilities(probs, selected_index, increase=True, k=0.1):
+    if increase:
+        delta = k / (len(probs) - 1)
+        for i in range(len(probs)):
+            if i == selected_index:
+                probs[i] = min(probs[i] + k, 1)  # 防止概率大于1
+            else:
+                probs[i] = max(probs[i] - delta, 0)  # 防止概率小于0
+    else:
+        delta = k / (len(probs) - 1)
+        for i in range(len(probs)):
+            if i == selected_index:
+                probs[i] = max(probs[i] - k, 0)
+            else:
+                probs[i] = min(probs[i] + delta, 1)
+    # 确保概率之和为1
+    total = sum(probs)
+    probs = [p / total for p in probs]
+    return probs
+
+def select_transformation(probs):
+    transformation_index = np.random.choice(len(probs), p=probs)
+    return transformation_index
+
+def iterative_image_selection(distance_matrix, image_names, labels, real_labels, T, transformation_probs):
+    already_selected = []
+    current_index = random.randint(0, len(image_names) - 1)  # 随机选择一个起始图片
+    already_selected.append(current_index)
+
+    for t in range(T):
+        # 选择一个蜕变关系
+        transformation_index = select_transformation(transformation_probs)
+        # 基于选择的蜕变关系，获取当前图像的标签
+        image_name = image_names[current_index]
+        current_label = labels[transformation_index][image_name][0][0]
+        is_label_correct = current_label == real_labels[image_name][0][0]
+        
+        # 根据标签比对结果更新蜕变关系概率
+        transformation_probs = update_transformation_probabilities(transformation_probs, transformation_index, increase=not is_label_correct, k=0.1)
+        
+        # 选择下一个图像
+        distances = distance_matrix[current_index, :]
+        if is_label_correct:
+            sorted_indices = np.argsort(-distances)  # 选择最远的
+        else:
+            sorted_indices = np.argsort(distances)  # 选择最近的
+
+        for index in sorted_indices:
+            if index not in already_selected:
+                already_selected.append(index)
+                current_index = index
+                break
+
+    return already_selected, transformation_probs
+
+
+# distance_matrix = ...  # 距离矩阵
+# labels = ...  # 预测标签列表
+# real_labels = ...  # 真实标签列表
+# n = 5  # 迭代次数
+# transformation_probs = [0.1] * 10  # 初始化蜕变关系的选择概率
+
+# selected_indices, final_probs = iterative_image_selection(distance_matrix, image_names, labels, real_labels, n, transformation_probs)
+
