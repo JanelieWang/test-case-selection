@@ -1,0 +1,125 @@
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
+from scipy.spatial.distance import cdist
+import pickle
+import random
+import json
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 从JSON文件读取数据
+with open('C:/Users/CHIU/Desktop/research/OIV6/features.pkl', 'rb') as file:
+    data = pickle.load(file)
+with open('C:/Users/CHIU/Desktop/research/OIV6/image_names.pkl', 'rb') as file:
+    image_names = pickle.load(file)
+with open('C:/Users/CHIU/Desktop/research/mld-oi/mld-oi.json', 'r') as file:
+    ori_data = json.load(file)
+
+#print(ori_data["2008_006290.jpg"][0][0])
+flattened_features = np.array([feature.reshape(-1) for feature in data])
+# 可选的特征缩放
+scaler = StandardScaler()
+scaled_features = scaler.fit_transform(flattened_features)
+
+# 应用K-means聚类
+sse_result=[]
+score=[]
+K = range(1)
+dst_path = 'C:/Users/CHIU/Desktop/research/mld-oi clus1' + '/'
+if not os.path.exists(dst_path):
+    os.makedirs(dst_path)
+for k in K:
+    kmeans = KMeans(n_clusters=70)
+    kmeans.fit(scaled_features)
+    sse_result.append(
+        sum(np.min(cdist(flattened_features, kmeans.cluster_centers_, 'euclidean'), axis=1)) / flattened_features.shape[
+            0])
+    score.append(silhouette_score(flattened_features, kmeans.labels_, metric='euclidean'))
+    # 创建一个字典来存储聚类结果
+    cluster_dict = {}
+    for label, image_name in zip(kmeans.labels_, image_names):
+        if label not in cluster_dict:
+            cluster_dict[int(label)] = []
+        cluster_dict[int(label)].append(image_name)
+    labels_df = pd.DataFrame(kmeans.labels_, columns=['ClusterLabel'])
+    labels_df.to_csv(dst_path + str(k) + '_cluster.csv', index=False)
+
+    result_dict_label = {}
+    result_dict_index = {}
+    for t in range(1):
+        # 每个聚类中要抽取的图像数量
+        n = 30
+
+        # 存储抽取结果的字典
+        selected_images = {}
+        result_list_label = []
+        result_list_index = []
+        # 遍历每个聚类
+        for cluster, images in cluster_dict.items():
+            # 如果聚类中的图像数量少于n，则抽取所有图像
+            if len(images) <= n:
+                selected_images[cluster] = images
+            else:
+                # 随机抽取n个图像
+                selected_images[cluster] = random.sample(images, n)
+
+        # selected_images现在包含了每个聚类中随机抽取的n个图像
+        for key in selected_images.keys():
+            images_list = selected_images[key]
+            dst_folder = 'C:/Users/CHIU/Desktop/research/mld-oi/mrs'
+            mr_list = []
+            label_list = []
+            #index_list = []
+            for filename in os.listdir(dst_folder):
+                with open(os.path.join(dst_folder,filename), 'r') as file:
+                    mr_data = json.load(file)
+                mr_name = filename[9:-5]      #不同数据集要改
+                label_count = 0
+                #index_count = 0
+                for image in images_list:
+                    ori_label = ori_data[image][0][0]
+                    #ori_index = ori_data[image][0][1]
+                    mr_label = mr_data[image][0][0]
+                    #mr_index = mr_data[image][0][1]
+                    if ori_label != mr_label:
+                        label_count += 1
+                    #for p_index in range(len(ori_index)):
+                    #    if ori_index[p_index] > 0.7:
+                    #        index_count += ori_index[p_index] - mr_index[p_index]
+                    #    else:
+                    #        index_count += mr_index[p_index] - ori_index[p_index]
+                mr_list += [mr_name]
+                label_list += [label_count]
+                #index_list += [index_count]
+            xy_combined_sorted_by_y = sorted(zip(mr_list, label_list), key=lambda pair: pair[1])
+            #xz_combined_sorted_by_z = sorted(zip(mr_list, index_list), key=lambda pair: pair[1])
+            label_rank = [item[0] for item in xy_combined_sorted_by_y]
+            #index_rank = [item[0] for item in xz_combined_sorted_by_z]
+            result_list_label += [label_rank]
+            #result_list_index += [index_rank]
+        if t not in result_dict_label:
+            result_dict_label[t] = []
+        result_dict_label[t].append(result_list_label)
+        #if t not in result_dict_index:
+        #    result_dict_index[t] = []
+        #result_dict_index[t].append(result_list_index)
+    with open(dst_path + str(k) + '_label.json', 'w', encoding='utf-8') as file:
+        json.dump(result_dict_label, file, ensure_ascii=False, indent=4)
+    #with open(dst_path + str(k) + '_index.json', 'w', encoding='utf-8') as file:
+    #    json.dump(result_dict_index, file, ensure_ascii=False, indent=4)
+
+plt.plot(K,sse_result,'gx-')
+plt.xlabel('k')
+plt.ylabel(u'gap value')
+plt.title(u'gap')
+plt.show()
+plt.plot(K,score,'r*-')
+plt.xlabel('k')
+plt.ylabel(u'Silhouette Coefficient')
+plt.title(u'Silhouette Coefficient')
+plt.show()
+
+
