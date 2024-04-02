@@ -1,0 +1,87 @@
+from PIL import Image
+import MR
+import os
+import json
+import pickle
+import random
+import numpy as np
+
+with open('C:/Users/CHIU/Desktop/research/coco/image_names.pkl', 'rb') as file:
+    image_names = pickle.load(file)
+with open('C:/Users/CHIU/Desktop/research/asl-coco/asl-coco.json', 'r') as file:
+    ori_data = json.load(file)
+base_folder = 'C:/Users/CHIU/Desktop/research/asl-coco/'
+mr_list = ['brightness 1.3', 'colored 1.6', 'contrast 2', 'gaussian 2', 'mean 3', 'median 3', 'rotate 3', 'sharpness 2', 'transpose 0']
+# 'resize 0.85',
+mr_list_data = []
+for mr in mr_list:
+    with open(base_folder + 'mrs/' + 'asl-coco-' + mr + '.json', 'r') as file:
+        mr_data = json.load(file)
+    mr_list_data.append(mr_data)
+
+
+clus_all_dict = {}
+over_all_dict = {}
+for k,v in ori_data.items():
+    image_name = k
+    ori_label = v[0][0]
+    label_len = len(ori_label)
+    if label_len not in clus_all_dict:
+        clus_all_dict[label_len] = [k]
+    else:
+        clus_all_dict[label_len].append(k)
+#print(clus_all_dict)
+base_path = 'C:/Users/CHIU/Desktop/research/test_coco2'
+n = 2500
+count = 0
+for i in range(15, -1, -1):
+    clus_n = len(clus_all_dict[i])
+    if clus_n <= n:
+        for img_n in clus_all_dict[i]:
+            ori_label = ori_data[img_n][0][0]
+            mr_rank = []
+            img_p = base_path + img_n
+            img1 = Image.open(os.path.join(base_path, img_n))
+            img1 = img1.convert('RGB')
+            img1_array = np.array(img1)
+            for mr in mr_list:
+                #print(mr)
+                img2 = MR.MetamorphicImages(img1, img_n, '', mr, os.path.join(base_path, img_n))
+                img2_array = np.array(img2)
+                #print(img2_array)
+                distance = np.linalg.norm(img1_array - img2_array)
+                mr_rank.append(distance)
+            indexed_lst = list(enumerate(mr_rank))
+            # 根据元素的值从大到小排序，并获取排序后的原始索引
+            sorted_indexes = [index for index, value in sorted(indexed_lst, key=lambda x: x[1], reverse=True)]
+            for index in sorted_indexes[:4]:
+                followup_label = mr_list_data[index][img_n][0][0]
+                if followup_label != ori_label:
+                    count += 1
+        n -= clus_n
+    else:
+        #print(clus_all_dict[i])
+        random_img_list = random.choices(clus_all_dict[i], k=n)
+        for img_n in random_img_list:
+            ori_label = ori_data[img_n][0][0]
+            mr_rank = []
+            img_p = base_path + img_n
+            img1 = Image.open(os.path.join(base_path, img_n))
+            img1 = img1.convert('RGB')
+            img1_array = np.array(img1)
+            for mr in mr_list:
+                #print(mr)
+                img2 = MR.MetamorphicImages(img1, img_n, '', mr, os.path.join(base_path, img_n))
+                img2_array = np.array(img2)
+                distance = np.linalg.norm(img1_array - img2_array)
+                mr_rank.append(distance)
+            indexed_lst = list(enumerate(mr_rank))
+            # 根据元素的值从大到小排序，并获取排序后的原始索引
+            sorted_indexes = [index for index, value in sorted(indexed_lst, key=lambda x: x[1], reverse=True)]
+            for index in sorted_indexes[:4]:
+                followup_label = mr_list_data[index][img_n][0][0]
+                if followup_label != ori_label:
+                    count += 1
+        n -= clus_n
+
+print(count)
