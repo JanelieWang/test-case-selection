@@ -1,0 +1,113 @@
+from PIL import ImageFilter
+from PIL import ImageEnhance
+from PIL import Image
+import cv2
+import os
+
+
+class MyGaussianBlur(ImageFilter.Filter):
+    name = "GaussianBlur"
+
+    def __init__(self, radius=2, bounds=None):
+        self.radius = radius
+        self.bounds = bounds
+
+    def filter(self, image):
+        if self.bounds:
+            clips = image.crop(self.bounds).gaussian_blur(self.radius)
+            image.paste(clips, self.bounds)
+            return image
+        else:
+
+            return image.gaussian_blur(self.radius)
+
+
+def mr_brightness(img, dstpath, img_base_name, img_base_type, p):
+    enh_bri = ImageEnhance.Brightness(img)
+    brightness = p
+    image_brightened = enh_bri.enhance(brightness)
+    return image_brightened
+
+
+def mr_rotate(img, dstpath, img_base_name, img_base_type, p):
+    new_im = img.rotate(p)
+    return new_im
+
+
+def mr_transpose(img, dstpath, img_base_name, img_base_type):
+    new_im = img.transpose(Image.FLIP_LEFT_RIGHT)
+    return new_im
+
+
+def mr_resize(img, dstpath, img_base_name, img_base_type, p):
+    scale_num = p
+    new_im = img.resize((int(img.size[0] * scale_num), int(img.size[1] * scale_num)))
+    return new_im
+
+
+def mr_gaussian(img, dstpath, img_base_name, img_base_type):
+    radius_num = 2
+    new_im = img.filter(MyGaussianBlur(radius=radius_num))
+    return new_im
+
+
+def mr_sharpness(img, dstpath, img_base_name, img_base_type, p):
+    enh_sha = ImageEnhance.Sharpness(img)
+    sharpness = p
+    image_sharped = enh_sha.enhance(sharpness)
+    return image_sharped
+
+
+def mr_contrast(img, dstpath, img_base_name, img_base_type, p):
+    enh_con = ImageEnhance.Contrast(img)
+    contrast = p
+    im3 = enh_con.enhance(contrast)
+    return im3
+
+
+def mr_mean(img, dstpath, img_base_name, img_base_type):
+    kernel_size = (3, 3)
+    img2 = cv2.imread(img)
+    im6 = cv2.blur(img2, kernel_size)
+    return im6
+
+
+def mr_colored(img, dstpath, img_base_name, img_base_type, p):
+    enh_col = ImageEnhance.Color(img)
+    color = p
+    im4 = enh_col.enhance(color)
+    return im4
+
+
+def mr_median(img, dstpath, img_base_name, img_base_type):
+    im8 = img.filter(ImageFilter.MedianFilter(size=3))
+    return im8
+
+
+def MetamorphicImages(img, image_name, dstpath, mr_p, image_path):
+    img_base_name = os.path.splitext(image_name)[0]
+    img_base_type = os.path.splitext(image_name)[1]
+    #img = img_1.convert('RGB')
+    mr = mr_p.split()[0]
+    p = float(mr_p.split()[1])
+    if mr == 'brightness':
+        a = mr_brightness(img, dstpath, img_base_name, img_base_type, p)
+    elif mr == 'rotate':
+        a = mr_rotate(img, dstpath, img_base_name, img_base_type, p)
+    elif mr == 'contrast':
+        a = mr_contrast(img, dstpath, img_base_name, img_base_type, p)
+    elif mr == 'transpose':
+        a = mr_transpose(img, dstpath, img_base_name, img_base_type)
+    elif mr == 'gaussian':
+        a = mr_gaussian(img, dstpath, img_base_name, img_base_type)
+    elif mr == 'resize':
+        a = mr_resize(img, dstpath, img_base_name, img_base_type, p)
+    elif mr == 'sharpness':
+        a = mr_sharpness(img, dstpath, img_base_name, img_base_type, p)
+    elif mr == 'median':
+        a = mr_median(img, dstpath, img_base_name, img_base_type)
+    elif mr == 'colored':
+        a = mr_colored(img, dstpath, img_base_name, img_base_type, p)
+    elif mr == 'mean':
+        a = mr_mean(image_path, dstpath, img_base_name, img_base_type)
+    return a
